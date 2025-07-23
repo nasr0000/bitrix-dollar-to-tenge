@@ -14,8 +14,6 @@ app.get("/ping", (req, res) => {
   res.send("✅ Сервер отвечает! Время: " + new Date().toISOString());
 });
 
-
-
 app.post("/", async (req, res) => {
   const dealId = req.body?.data?.FIELDS?.ID;
   if (!dealId) return res.status(400).send("❌ Не передан ID сделки");
@@ -30,17 +28,15 @@ app.post("/", async (req, res) => {
     const dollar = parseFloat(dollarRaw.toString().replace(/[^0-9.]/g, ""));
     if (isNaN(dollar)) return res.status(200).send("❌ Некорректное значение доллара");
 
-    // Получаем курс доллара с open.er-api.com
-      const kursRes = await axios.get("https://open.er-api.com/v6/latest/USD");
-      const rate = parseFloat(kursRes.data?.rates?.KZT);
+    // Получаем курс продажи доллара с open.er-api.com
+    const kursRes = await axios.get("https://open.er-api.com/v6/latest/USD");
+    const rate = parseFloat(kursRes.data?.rates?.KZT);
 
-      if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
+    if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
 
-      const tenge = Math.round(dollar * rate);
+    const tenge = Math.round(dollar * rate);
 
-
-
-    // Обновляем сделку в Bitrix24
+    // Обновляем сумму сделки
     await axios.post(`${WEBHOOK}crm.deal.update`, {
       id: dealId,
       fields: {
@@ -50,7 +46,32 @@ app.post("/", async (req, res) => {
     });
 
     console.log(`✅ Сделка #${dealId}: $${dollar} × ${rate} = ${tenge} ₸`);
-    res.send(`✅ Обновлено: $${dollar} по курсу продажи ${rate} = ${tenge} ₸`);
+
+    // Получаем текущие товары
+    const productRes = await axios.post(`${WEBHOOK}crm.deal.productrows.get`, {
+      id: dealId
+    });
+    const productRows = productRes.data?.result;
+
+    if (productRows && productRows.length > 0) {
+      const updatedRows = productRows.map(row => ({
+        ...row,
+        PRICE: tenge,
+        PRICE_BRUTTO: tenge,
+        PRICE_NETTO: tenge
+      }));
+
+      await axios.post(`${WEBHOOK}crm.deal.productrows.set`, {
+        id: dealId,
+        rows: updatedRows
+      });
+
+      console.log(`🛒 Обновлены цены товаров в сделке #${dealId} → ${tenge} ₸`);
+    } else {
+      console.warn("⚠️ В сделке нет товаров для обновления");
+    }
+
+    res.send(`✅ Обновлено: $${dollar} × ${rate} = ${tenge} ₸`);
   } catch (err) {
     console.error("❌ Ошибка:", err.message);
     res.status(500).send("❌ Ошибка сервера");
