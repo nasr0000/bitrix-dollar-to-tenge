@@ -5,7 +5,6 @@ app.use(express.json());
 
 const WEBHOOK = "https://itnasr.bitrix24.kz/rest/1/bucjza1li2wbp6lr/";
 const DOLLAR_FIELD = "UF_CRM_1753277551304";
-const USD_TO_KZT = 535;
 
 app.get("/", (req, res) => {
   res.send("🚀 Сервер работает! Ожидаю POST от Bitrix24...");
@@ -16,17 +15,25 @@ app.post("/", async (req, res) => {
   if (!dealId) return res.status(400).send("❌ Не передан ID сделки");
 
   try {
+    // Получаем сделку
     const getRes = await axios.post(`${WEBHOOK}crm.deal.get`, { id: dealId });
     const deal = getRes.data?.result;
     const dollarRaw = deal?.[DOLLAR_FIELD];
-
     if (!dollarRaw) return res.status(200).send("⚠️ Поле с долларом пустое");
 
     const dollar = parseFloat(dollarRaw.toString().replace(/[^0-9.]/g, ""));
     if (isNaN(dollar)) return res.status(200).send("❌ Некорректное значение доллара");
 
-    const tenge = Math.round(dollar * USD_TO_KZT);
+    // Получаем актуальный курс доллара (kurs.kz)
+    const kursRes = await axios.get("https://api.kurs.kz/json");
+    const usd = kursRes.data?.[0]?.buy;
+    const rate = parseFloat(usd);
 
+    if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
+
+    const tenge = Math.round(dollar * rate);
+
+    // Обновляем сделку
     await axios.post(`${WEBHOOK}crm.deal.update`, {
       id: dealId,
       fields: {
@@ -35,10 +42,10 @@ app.post("/", async (req, res) => {
       }
     });
 
-    console.log(`✅ Сделка #${dealId}: $${dollar} → ${tenge} ₸`);
-    res.send(`✅ Сумма обновлена: ${tenge} ₸`);
+    console.log(`✅ Сделка #${dealId}: $${dollar} * ${rate} = ${tenge} ₸`);
+    res.send(`✅ Сумма обновлена: ${tenge} ₸ по курсу ${rate}`);
   } catch (err) {
-    console.error("Ошибка:", err.message);
+    console.error("❌ Ошибка:", err.message);
     res.status(500).send("❌ Ошибка сервера");
   }
 });
