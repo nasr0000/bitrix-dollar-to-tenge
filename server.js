@@ -10,6 +10,12 @@ app.get("/", (req, res) => {
   res.send("🚀 Сервер работает! Ожидаю POST от Bitrix24...");
 });
 
+app.get("/ping", (req, res) => {
+  res.send("✅ Сервер отвечает! Время: " + new Date().toISOString());
+});
+
+
+
 app.post("/", async (req, res) => {
   const dealId = req.body?.data?.FIELDS?.ID;
   if (!dealId) return res.status(400).send("❌ Не передан ID сделки");
