@@ -24,16 +24,16 @@ app.post("/", async (req, res) => {
     const dollar = parseFloat(dollarRaw.toString().replace(/[^0-9.]/g, ""));
     if (isNaN(dollar)) return res.status(200).send("❌ Некорректное значение доллара");
 
-    // Получаем актуальный курс доллара (kurs.kz)
+    // Получаем курс продажи доллара с kurs.kz
     const kursRes = await axios.get("https://api.kurs.kz/json");
-    const usd = kursRes.data?.[0]?.buy;
-    const rate = parseFloat(usd);
+    const usdRate = kursRes.data.find(c => c.name === "USD")?.sell;
+    const rate = parseFloat(usdRate);
 
     if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
 
     const tenge = Math.round(dollar * rate);
 
-    // Обновляем сделку
+    // Обновляем сделку в Bitrix24
     await axios.post(`${WEBHOOK}crm.deal.update`, {
       id: dealId,
       fields: {
@@ -42,8 +42,8 @@ app.post("/", async (req, res) => {
       }
     });
 
-    console.log(`✅ Сделка #${dealId}: $${dollar} * ${rate} = ${tenge} ₸`);
-    res.send(`✅ Сумма обновлена: ${tenge} ₸ по курсу ${rate}`);
+    console.log(`✅ Сделка #${dealId}: $${dollar} × ${rate} = ${tenge} ₸`);
+    res.send(`✅ Обновлено: $${dollar} по курсу продажи ${rate} = ${tenge} ₸`);
   } catch (err) {
     console.error("❌ Ошибка:", err.message);
     res.status(500).send("❌ Ошибка сервера");
