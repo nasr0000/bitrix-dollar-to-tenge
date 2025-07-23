@@ -24,12 +24,13 @@ app.post("/", async (req, res) => {
     const dollar = parseFloat(dollarRaw.toString().replace(/[^0-9.]/g, ""));
     if (isNaN(dollar)) return res.status(200).send("❌ Некорректное значение доллара");
 
-    // Получаем курс продажи доллара с Frankfurter API
-        const kursRes = await axios.get("https://api.frankfurter.app/latest?from=USD&to=KZT");
-        const rate = parseFloat(kursRes.data?.rates?.KZT);
+    // Получаем курс доллара с open.er-api.com
+      const kursRes = await axios.get("https://open.er-api.com/v6/latest/USD");
+      const rate = parseFloat(kursRes.data?.rates?.KZT);
 
-        if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
-        const tenge = Math.round(dollar * rate);
+      if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
+
+      const tenge = Math.round(dollar * rate);
 
 
 
