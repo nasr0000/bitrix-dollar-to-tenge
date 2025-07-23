@@ -24,14 +24,13 @@ app.post("/", async (req, res) => {
     const dollar = parseFloat(dollarRaw.toString().replace(/[^0-9.]/g, ""));
     if (isNaN(dollar)) return res.status(200).send("❌ Некорректное значение доллара");
 
-    // Получаем курс продажи доллара с kurs.kz
-    // Получаем курс продажи доллара с exchangerate.host
-      const kursRes = await axios.get("https://api.exchangerate.host/latest?base=USD&symbols=KZT");
-      const rate = parseFloat(kursRes.data?.rates?.KZT);
+    // Получаем курс продажи доллара с Frankfurter API
+        const kursRes = await axios.get("https://api.frankfurter.app/latest?from=USD&to=KZT");
+        const rate = parseFloat(kursRes.data?.rates?.KZT);
 
-      if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
+        if (!rate || isNaN(rate)) return res.status(500).send("❌ Курс не получен");
+        const tenge = Math.round(dollar * rate);
 
-      const tenge = Math.round(dollar * rate);
 
 
     // Обновляем сделку в Bitrix24
